@@ -2,30 +2,30 @@
 %displacement field
 
 function[ux_cc,uy_cc]= cc_main(I1, I2)
-wSize     = 16;                    % Window size
-sSize     = 32;                    % Search size
-interpFac = 5;                     %this is the interpolation factor
-thresh = 5; 
+wS     = 16;                    % Window size
+sS     = 32;                    % Search size
+intfac = 5;                     %this is the interpolation factor
+th = 5; 
 [ry cx] = size(I1);
 rect = [1 1 size(I2,2) size(I2,1)];                                     % here we have set the region of interest to the entire region, here 1, 1  sets the coordinate of the top left corner of the image
 
-numRows_I = size(I1,1);                                                     % Number of rows in initial image
-numCols_I = size(I1,2);                                                     % Number of cols in initial image
+nR_I = size(I1,1);                                                     % Number of rows in initial image
+nC_I = size(I1,2);                                                     % Number of cols in initial image
 
 
-wSize2 = floor(wSize/2);                                                    % Half of window size
-sSize2 = floor(sSize/2);                                                    % Half of search size
+wS2 = floor(wS/2);                                                    % Half of window size
+sS2 = floor(sS/2);                                                    % Half of search size
 
 %overlap of half of the window size is define basically 16:16:(500-8)=492
 
-wIndR = (wSize:wSize:(numRows_I-wSize2))';                                  % Window center locations for each row 
-wIndC = (wSize:wSize:(numCols_I-wSize2))';                                  % Window center locations for each column
+wIndR = (wS:wS:(nR_I-wS2))';                                  % Window center locations for each row 
+wIndC = (wS:wS:(nC_I-wS2))';                                  % Window center locations for each column
 numR  = length(wIndR);                                                      % Number of rows length returns the size of array
 numC  = length(wIndC);                                                      % Number of columns returns the length of array
 
 
-colPeak   = zeros(numR,numC);                                               % Initialize colPeak first initialized as zero
-rowPeak   = zeros(numR,numC);                                               % Initialize rowPeak the same
+cPeak   = zeros(numR,numC);                                               % Initialize colPeak first initialized as zero
+rPeak   = zeros(numR,numC);                                               % Initialize rowPeak the same
 colOffset = zeros(numR,numC);                                               % Initialize colOffset the same
 rowOffset = zeros(numR,numC);                                               % Initialize rowOffset the same
 
@@ -34,16 +34,16 @@ for i = 1:1:numR                                                            % Lo
     for j = 1:1:numC                                                        % Loop over all image columns
         
         % Get window centers
-        rowCenter = wIndR(i);                                               % Window row center
-        colCenter = wIndC(j);                                               % Window column center
+        rCenter = wIndR(i);                                               % Window row center
+        cCenter = wIndC(j);                                               % Window column center
 
 
-        cropI1 = [colCenter-wSize2, rowCenter-wSize2, wSize, wSize];        % Define cropping rectangle for image 1
+        cropI1 = [cCenter-wS2, rCenter-wS2, wS, wS];        % Define cropping rectangle for image 1
         I1_Sub = imcrop(I1,cropI1);                                         % Crop image 1 (template)
         I1_Sub_transposed =  I1_Sub';
         % Crop the template to SEARCH size
         % - [col start, row start, col nums, row nums]
-        cropI2 = [colCenter-sSize2, rowCenter-sSize2, sSize, sSize];        % Define cropping rectangle for image 2
+        cropI2 = [cCenter-sS2, rCenter-sS2, sS, sS];        % Define cropping rectangle for image 2
         I2_Sub = imcrop(I2,cropI2);                                         % Crop image 2 (comparison)
         I2_Sub_transposed =  I2_Sub';
 
@@ -83,24 +83,19 @@ for i = 1:1:numR                                                            % Lo
                 if (colP == cC) colP = colP - 1; end
                 
 % gaussian sub pixel interpolation
- numX = log(c(rowP-1,colP)) - log(c(rowP+1,colP));
-                denX = 2*log(c(rowP-1,colP)) - 4*log(c(rowP,colP)) + 2*log(c(rowP+1,colP));
-                dx   = numX/denX;
-                numY = log(c(rowP,colP-1)) - log(c(rowP,colP+1));
-                denY = 2*log(c(rowP,colP-1)) - 4*log(c(rowP,colP)) + 2*log(c(rowP,colP+1));
-                dy   = numY/denY;
-
-
+ 
+                dx   = (log(c(rowP-1,colP)) - log(c(rowP+1,colP)))/(2*log(c(rowP-1,colP)) - 4*log(c(rowP,colP)) + 2*log(c(rowP+1,colP)));
+                dy   = (log(c(rowP,colP-1)) - log(c(rowP,colP+1)))/(2*log(c(rowP,colP-1)) - 4*log(c(rowP,colP)) + 2*log(c(rowP,colP+1)));
 
  % Set the col and row peak values from max of cross-correlation
-        colPeak(i,j) = colP + dy;                                           % Column peak location (X)
-        rowPeak(i,j) = rowP + dx;                                           % Row peak location (Y)
+        cPeak(i,j) = colP + dy;                                           % Column peak location (X)
+        rPeak(i,j) = rowP + dx;                                           % Row peak location (Y)
         
         % Find the pixel offsets for X and Y directions- done to convert the
         % location from local to global.
         
-        colOffset(i,j) = colPeak(i,j) - wSize2 - sSize2 - 1;                % Actual column pixel shift
-        rowOffset(i,j) = rowPeak(i,j) - wSize2 - sSize2 - 1;                % Actual row pixel shift
+        colOffset(i,j) = cPeak(i,j) - wS2 - sS2 - 1;                % Actual column pixel shift
+        rowOffset(i,j) = rPeak(i,j) - wS2 - sS2 - 1;                % Actual row pixel shift
 
 
 end
@@ -109,22 +104,19 @@ end
 
 
 % Meshgrid
-[RR,CC] = meshgrid(wIndR,wIndC);                                            % Row/column meshgrid
-RR      = RR';                                                              % Make it more intuitive to read
-CC      = CC';                                                              % Make it more intuitive to read
-
-% Set quiver variable values for ease of viewing 
-quivX   = CC;                                                               % Quiver X-coordinate
-quivY   = RR;                                                               % Quiver Y-coordinate
-quivU   = colOffset;                                                        % Quiver U-displacement
-quivV   = rowOffset;                                                        % Quiver V-displacement
-quivVel = sqrt(quivU.^2 + quivV.^2);                                        %quiver total velocity
+[RR,CC] = meshgrid(wIndR,wIndC);                                            
+RR      = RR';                                                              
+CC      = CC';                                                              
+quivX   = CC;                                                               
+quivY   = RR;                                                               
+quivU   = colOffset;                                                        
+quivV   = rowOffset;                                                        
+quivVel = sqrt(quivU.^2 + quivV.^2);                                        
 
 quivU(:,1) = quivU(:,1) + 1;                                                % adds 1 to each element of first column
 quivV(1,:) = quivV(1,:) + 1;                                                % adds 1 to each element to first row of matrix both done because of coordinate starts from 1,1 
 
 
-% Move the countour plot over the image
 XX     = quivX - min(min(quivX));
 scaleX = rect(3)/max(max(XX));
 XX     = XX*scaleX + rect(1);
@@ -138,17 +130,15 @@ quivV   = real(quivV);
     YYPlot = real(YY);
     ZZPlot = real(quivVel);
     
-    quivU(abs(quivU) > thresh) = nan;
-quivV(abs(quivV) > thresh) = nan;
+    quivU(abs(quivU) > th) = nan;
+quivV(abs(quivV) > th) = nan;
 quivVel = sqrt(quivU.^2 + quivV.^2);
 
-numXXInterp = interpFac*size(XX,2);
-    numYYInterp = interpFac*size(YY,1);
+numXXInterp = intfac*size(XX,2);
+    numYYInterp = intfac*size(YY,1);
     XSmooth = linspace(min(XX(1,:)),max(XX(1,:)),numXXInterp);
     YSmooth = linspace(min(YY(:,1)),max(YY(:,1)),numYYInterp);
-%     XXPlot = XX;
-%     YYPlot = YY;
-%     ZZPlot = quivVel;
+
 
 %     
     
